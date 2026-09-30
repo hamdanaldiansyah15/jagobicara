@@ -1,0 +1,348 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PARTICIPANT
+  COMMUNITY_ADMIN
+  SUPER_ADMIN
+}
+
+enum CourseAccessMode {
+  FREE
+  COMMUNITY
+  REDEEM_CODE
+}
+
+enum CourseGrantSource {
+  REDEEM_CODE
+  LEADERBOARD
+  ADMIN
+  PAYMENT
+}
+
+model User {
+  id           String            @id @default(cuid())
+  name         String
+  age          Int
+  gender       String
+  email        String            @unique
+  whatsapp     String
+  passwordHash String
+  role         Role              @default(PARTICIPANT)
+  isActive     Boolean           @default(true)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  communityMembers  CommunityMember[]
+  speakingAttempts  SpeakingAttempt[]
+  moduleProgress    ModuleProgress[]
+  userBadges        UserBadge[]
+  certificate       Certificate?
+  courseAccessGrants CourseAccessGrant[]
+  courseCertificates CourseCertificate[]
+
+  @@index([role])
+}
+
+model Community {
+  id          String            @id @default(cuid())
+  name        String
+  address     String?
+  code        String            @unique
+  description String?
+  status      String            @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  members     CommunityMember[]
+}
+
+model CommunityMember {
+  id          String    @id @default(cuid())
+  userId      String
+  communityId String
+  joinedAt    DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, communityId])
+  @@index([communityId])
+}
+
+model SpeakingTopic {
+  id        String            @id @default(cuid())
+  category  String
+  title     String
+  prompt    String
+  tips      String?
+  isActive  Boolean           @default(true)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  attempts  SpeakingAttempt[]
+
+  @@index([category])
+}
+
+model SpeakingAttempt {
+  id          String         @id @default(cuid())
+  userId      String
+  topicId     String?
+  topicTitle  String
+  duration    Int            // in seconds
+  fluency     Int            // 0-100 (Kelancaran)
+  ideaDev     Int            // 0-100 (Pengembangan Ide)
+  relevance   Int            // 0-100 (Relevansi Topik)
+  structure   Int            // 0-100 (Struktur)
+  vocabulary  Int            // 0-100 (Penggunaan Kata)
+  finalScore  Int            // 0-100 (Rata-rata 5 dimensi)
+  feedback    String         @db.Text
+  transcript  String         @default("") @db.Text
+  correctedTranscript String @default("") @db.Text
+  wordCount   Int            @default(0)
+  wordsPerMinute Float       @default(0)
+  fillerCount Int            @default(0)
+  repetitionCount Int        @default(0)
+  durationScore Int          @default(0)
+  dimensionNotes String     @default("{}") @db.Text
+  removedWords String       @default("[]") @db.Text
+  suggestedAdditions String @default("[]") @db.Text
+  seasonKey   String         // e.g. "2026-09" for monthly leaderboard
+  valid       Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topic       SpeakingTopic? @relation(fields: [topicId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([seasonKey, valid, finalScore])
+}
+
+model Module {
+  id          String           @id @default(cuid())
+  order       Int              // order within its course
+  courseId    String?
+  title       String
+  subtitle    String
+  description String
+  pdfTitle    String?
+  pdfUrl      String?
+  content     String           @db.Text // JSON structured lesson chapters & tips
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  questions   QuizQuestion[]
+  badge       Badge?
+  progress    ModuleProgress[]
+  course      LearningCourse?  @relation(fields: [courseId], references: [id], onDelete: SetNull)
+
+  @@unique([courseId, order])
+  @@index([courseId, order])
+}
+
+model QuizQuestion {
+  id            String   @id @default(cuid())
+  moduleId      String
+  order         Int      @default(1)
+  question      String   @db.Text
+  optionA       String
+  optionB       String
+  optionC       String
+  optionD       String
+  correctAnswer String   // "A", "B", "C", "D"
+  explanation   String   @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  module        Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@index([moduleId, order])
+}
+
+model ModuleProgress {
+  id            String    @id @default(cuid())
+  userId        String
+  moduleId      String
+  isCompleted   Boolean   @default(false)
+  quizScore     Int       @default(0) // must be 10 for completion
+  attemptsCount Int       @default(0)
+  completedAt   DateTime?
+  updatedAt     DateTime  @updatedAt
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module        Module    @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleId])
+  @@index([userId])
+}
+
+model Badge {
+  id          String      @id @default(cuid())
+  name        String
+  description String
+  icon        String
+  moduleId    String      @unique
+  createdAt   DateTime    @default(now())
+
+  module      Module      @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  userBadges  UserBadge[]
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  badgeId   String
+  awardedAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
+  @@index([userId])
+}
+
+model Certificate {
+  id                String   @id @default(cuid())
+  certificateNumber String   @unique // e.g. JB-2026-000001
+  userId            String   @unique
+  recipientName     String
+  recipientMessage  String   @default("telah menyelesaikan seluruh materi dan menunjukkan komitmen untuk terus bertumbuh.") @db.Text
+  gradientStart     String   @default("#F97316")
+  gradientEnd       String   @default("#FBBF24")
+  issueDate         DateTime @default(now())
+  signatureName     String   @default("M. Hamdan Aldiansyah, CPS.")
+  signatureRole     String   @default("Founder of Jago Bicara")
+  downloadCount     Int      @default(0)
+  lastDownloadedAt  DateTime?
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([certificateNumber])
+}
+
+model LearningCourse {
+  id                     String           @id @default(cuid())
+  title                  String
+  description            String           @db.Text
+  accessMode             CourseAccessMode @default(FREE)
+  isActive               Boolean          @default(true)
+  leaderboardReward     Boolean          @default(false)
+  rewardDurationDays    Int              @default(30)
+  certificateEnabled    Boolean          @default(true)
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+
+  modules                Module[]
+  accessGrants           CourseAccessGrant[]
+  redeemCodes            CourseRedeemCode[]
+  certificates           CourseCertificate[]
+  certificateTemplates   CertificateTemplate[]
+
+  @@index([accessMode, isActive])
+}
+
+model CourseAccessGrant {
+  id           String            @id @default(cuid())
+  userId       String
+  courseId     String
+  source       CourseGrantSource
+  sourceKey    String?           @unique
+  redeemCodeId String?
+  startsAt     DateTime          @default(now())
+  expiresAt    DateTime?
+  revokedAt    DateTime?
+  createdAt    DateTime          @default(now())
+
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course       LearningCourse    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  redeemCode   CourseRedeemCode? @relation(fields: [redeemCodeId], references: [id], onDelete: SetNull)
+
+  @@index([userId, courseId, expiresAt, revokedAt])
+  @@unique([userId, redeemCodeId])
+}
+
+model CourseRedeemCode {
+  id               String             @id @default(cuid())
+  code             String             @unique
+  courseId         String
+  maxRedemptions   Int                @default(1)
+  redemptionCount  Int                @default(0)
+  durationDays     Int?
+  expiresAt        DateTime?
+  isActive         Boolean            @default(true)
+  createdAt        DateTime           @default(now())
+
+  course           LearningCourse    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  grants           CourseAccessGrant[]
+
+  @@index([courseId, isActive])
+}
+
+model CourseCertificate {
+  id                String         @id @default(cuid())
+  certificateNumber String         @unique
+  userId            String
+  courseId          String
+  recipientName     String
+  recipientMessage  String         @default("telah menyelesaikan seluruh materi dan menunjukkan komitmen untuk terus bertumbuh.") @db.Text
+  gradientStart     String         @default("#F97316")
+  gradientEnd       String         @default("#FBBF24")
+  issueDate         DateTime       @default(now())
+  signatureName     String         @default("M. Hamdan Aldiansyah, CPS.")
+  signatureRole     String         @default("Founder of Jago Bicara")
+  downloadCount     Int            @default(0)
+  lastDownloadedAt  DateTime?
+
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course            LearningCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([certificateNumber])
+}
+
+model CertificateTemplate {
+  id                String         @id @default(cuid())
+  scopeKey          String         @unique
+  courseId          String?
+  courseCode        String         @unique
+  gradientStart     String         @default("#F97316")
+  gradientEnd       String         @default("#FBBF24")
+  recipientMessage  String         @default("telah menyelesaikan seluruh materi dan menunjukkan komitmen untuk terus bertumbuh.") @db.Text
+  signatureName     String         @default("M. Hamdan Aldiansyah, CPS.")
+  signatureRole     String         @default("Founder of Jago Bicara")
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  course            LearningCourse? @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId])
+}
+
+model CertificateSequence {
+  id          String @id @default(cuid())
+  scopeKey    String
+  issueDate   String
+  lastNumber  Int    @default(0)
+
+  @@unique([scopeKey, issueDate])
+}
+
+model ScriptTemplate {
+  id           String   @id @default(cuid())
+  type         String   // MC, SAMBUTAN, MODERATOR, PRESENTASI
+  name         String
+  description  String
+  category     String   // Formal, Semi-formal, Non-formal
+  templateBody String   @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([type])
+}

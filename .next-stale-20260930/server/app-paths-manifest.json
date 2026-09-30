@@ -1,0 +1,9 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/bicara/page": "app/bicara/page.js",
+  "/naskah/page": "app/naskah/page.js",
+  "/login/page": "app/login/page.js",
+  "/beranda/page": "app/beranda/page.js",
+  "/akun/sertifikat/page": "app/akun/sertifikat/page.js",
+  "/akun/page": "app/akun/page.js"
+}

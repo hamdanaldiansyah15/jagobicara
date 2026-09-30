@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="jbGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F46E5" />
+      <stop offset="100%" stop-color="#3730A3" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#D97706" />
+    </linearGradient>
+  </defs>
+  <!-- Background with rounded corner -->
+  <rect width="512" height="512" rx="112" fill="url(#jbGrad)" />
+  
+  <!-- Sound Waves (Left & Right) -->
+  <path d="M120 220 A60 60 0 0 0 120 292" stroke="#93C5FD" stroke-width="18" stroke-linecap="round" fill="none" opacity="0.8"/>
+  <path d="M90 190 A100 100 0 0 0 90 322" stroke="#60A5FA" stroke-width="18" stroke-linecap="round" fill="none" opacity="0.5"/>
+  <path d="M392 220 A60 60 0 0 1 392 292" stroke="#93C5FD" stroke-width="18" stroke-linecap="round" fill="none" opacity="0.8"/>
+  <path d="M422 190 A100 100 0 0 1 422 322" stroke="#60A5FA" stroke-width="18" stroke-linecap="round" fill="none" opacity="0.5"/>
+
+  <!-- Microphone Stand -->
+  <path d="M196 260 C196 295 222 324 256 324 C290 324 316 295 316 260" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round" fill="none" />
+  <line x1="256" y1="324" x2="256" y2="384" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round" />
+  <line x1="206" y1="384" x2="306" y2="384" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round" />
+
+  <!-- Microphone Capsule -->
+  <rect x="220" y="140" width="72" height="130" rx="36" fill="url(#accentGrad)" stroke="#FFFFFF" stroke-width="10" />
+  
+  <!-- Capsule Grille Lines -->
+  <line x1="230" y1="185" x2="282" y2="185" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" opacity="0.6"/>
+  <line x1="230" y1="205" x2="282" y2="205" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" opacity="0.6"/>
+  <line x1="230" y1="225" x2="282" y2="225" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" opacity="0.6"/>
+</svg>
