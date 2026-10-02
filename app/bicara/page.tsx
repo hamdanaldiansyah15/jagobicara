@@ -58,6 +58,8 @@ export default function BicaraPage() {
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
   const transcriptRef = useRef("");
+  const interimTranscriptRef = useRef("");
+  const recognitionStopWaiterRef = useRef<(() => void) | null>(null);
   const finishingRef = useRef(false);
 
   // Fetch random topic on load
@@ -134,6 +136,7 @@ export default function BicaraPage() {
     audioChunksRef.current = [];
     setSecondsRemaining(60);
     transcriptRef.current = "";
+    interimTranscriptRef.current = "";
     finishingRef.current = false;
     setTranscript("");
     setInterimTranscript("");
@@ -172,8 +175,12 @@ export default function BicaraPage() {
             else interim = `${interim} ${recognized}`.trim();
           }
           transcriptRef.current = finalText;
+          interimTranscriptRef.current = interim;
           setTranscript(finalText);
           setInterimTranscript(interim);
+        };
+        recognition.onend = () => {
+          recognitionStopWaiterRef.current?.();
         };
         recognition.onerror = (event: any) => {
           if (event.error !== "no-speech" && event.error !== "aborted") {
@@ -226,14 +233,40 @@ export default function BicaraPage() {
       Math.min(60, Math.round((Date.now() - startTimeRef.current) / 1000))
     );
 
-    // Stop MediaRecorder
-    try {
-      recognitionRef.current?.stop();
-    } catch {
-      // Recognition may already have stopped after a browser speech error.
-    }
-    recognitionRef.current = null;
+    // Stop speech recognition and let its final result event flush before submitting.
+    const recognition = recognitionRef.current;
+    if (recognition) {
+      const waitForRecognitionEnd = new Promise<void>((resolve) => {
+        let timeoutId: number;
+        const finishWaiting = () => {
+          window.clearTimeout(timeoutId);
+          if (recognitionStopWaiterRef.current === finishWaiting) {
+            recognitionStopWaiterRef.current = null;
+          }
+          resolve();
+        };
+        recognitionStopWaiterRef.current = finishWaiting;
+        timeoutId = window.setTimeout(finishWaiting, 1200);
+      });
 
+      try {
+        recognition.stop();
+      } catch {
+        recognitionStopWaiterRef.current?.();
+      }
+      await waitForRecognitionEnd;
+      recognitionRef.current = null;
+    }
+
+    const pendingInterim = interimTranscriptRef.current.trim();
+    if (pendingInterim) {
+      transcriptRef.current = [transcriptRef.current, pendingInterim].filter(Boolean).join(" ");
+      setTranscript(transcriptRef.current);
+    }
+    interimTranscriptRef.current = "";
+    setInterimTranscript("");
+
+    // Stop MediaRecorder
     if (
       mediaRecorderRef.current &&
       mediaRecorderRef.current.state === "recording"
@@ -241,8 +274,6 @@ export default function BicaraPage() {
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
     }
-    setInterimTranscript("");
-
     try {
       const res = await fetch("/api/bicara/submit", {
         method: "POST",
@@ -271,6 +302,8 @@ export default function BicaraPage() {
       finishingRef.current = false;
     }
   };
+
+  const liveTranscript = [transcript, interimTranscript].filter(Boolean).join(" ");
 
   return sessionUser === undefined ? (
       <div className="min-h-screen bg-surface-bg" aria-label="Memuat sesi" />
@@ -427,22 +460,23 @@ export default function BicaraPage() {
             <div className="w-full max-w-xl text-left">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <label htmlFor="live-transcript" className="text-sm font-bold text-slate-800">Transkrip ucapan</label>
-                <span className="text-xs text-slate-500">{transcript.trim() ? transcript.trim().split(/\s+/).length : 0} kata tercatat</span>
+                <span className="text-xs text-slate-500">{liveTranscript.trim() ? liveTranscript.trim().split(/\s+/).length : 0} kata tercatat</span>
               </div>
               <textarea
                 id="live-transcript"
-                value={transcript}
+                value={liveTranscript}
                 onChange={(event) => {
                   transcriptRef.current = event.target.value;
+                  interimTranscriptRef.current = "";
                   setTranscript(event.target.value);
+                  setInterimTranscript("");
                 }}
                 rows={5}
                 placeholder={speechSupported ? "Ucapanmu akan muncul di sini. Kamu bisa mengoreksi hasil transkripsi sebelum selesai." : "Browser ini tidak menyediakan transkripsi otomatis. Ketik ucapanmu di sini saat berbicara agar bisa dinilai."}
                 className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm leading-relaxed text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary"
               />
               <p className="mt-1 text-left text-[11px] text-slate-500">
-                {speechSupported ? "Transkripsi otomatis browser aktif; periksa dan koreksi teks sebelum mengakhiri latihan." : "Transkripsi otomatis tidak tersedia di browser ini; isi teks secara manual agar penilaian berbasis kata dapat dilakukan."}
-                {interimTranscript && <span className="ml-1 italic text-slate-400">Mendengar: {interimTranscript}</span>}
+                {speechSupported ? "Ucapan sementara langsung ditampilkan dan akan disimpan saat sesi berakhir. Kata seperti ‘eee’ atau ‘hmm’ tercatat jika dikenali browser." : "Transkripsi otomatis tidak tersedia di browser ini; isi teks secara manual agar penilaian berbasis kata dapat dilakukan."}
               </p>
             </div>
 
