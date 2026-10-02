@@ -35,7 +35,7 @@ export default async function ModulkuPage() {
         progress: { where: { userId: user.id } },
       },
     }),
-    prisma.learningCourse.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.learningCourse.findMany({ where: { isActive: true }, orderBy: { createdAt: "asc" } }),
     prisma.userBadge.findMany({
       where: { userId: user.id },
       include: { badge: true },

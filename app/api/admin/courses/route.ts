@@ -33,7 +33,7 @@ export async function GET() {
       orderBy: { createdAt: "asc" },
       include: {
         redeemCodes: { orderBy: { createdAt: "desc" } },
-        _count: { select: { modules: true } },
+        _count: { select: { modules: true, accessGrants: true, certificates: true } },
       },
     });
     return NextResponse.json({ courses });
@@ -88,5 +88,70 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("Create learning course error:", error);
     return NextResponse.json({ error: "Gagal membuat kelas." }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const user = await getCurrentUser();
+    if (!user || user.role !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Akses ditolak." }, { status: 403 });
+    }
+
+    const parsed = z.object({ id: z.string().min(1), isActive: z.boolean() }).safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Data status kelas tidak valid." }, { status: 400 });
+    }
+
+    const course = await prisma.learningCourse.update({
+      where: { id: parsed.data.id },
+      data: { isActive: parsed.data.isActive },
+    });
+    return NextResponse.json({ success: true, course });
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "P2025") {
+      return NextResponse.json({ error: "Kelas tidak ditemukan." }, { status: 404 });
+    }
+    console.error("Update learning course status error:", error);
+    return NextResponse.json({ error: "Gagal memperbarui status kelas." }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const user = await getCurrentUser();
+    if (!user || user.role !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Akses ditolak." }, { status: 403 });
+    }
+
+    const parsed = z.object({ id: z.string().min(1) }).safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: "ID kelas tidak valid." }, { status: 400 });
+    }
+
+    const course = await prisma.learningCourse.findUnique({
+      where: { id: parsed.data.id },
+      select: {
+        id: true,
+        _count: { select: { modules: true, accessGrants: true, certificates: true } },
+      },
+    });
+    if (!course) {
+      return NextResponse.json({ error: "Kelas tidak ditemukan." }, { status: 404 });
+    }
+    if (course._count.modules || course._count.accessGrants || course._count.certificates) {
+      return NextResponse.json({
+        error: "Kelas yang sudah memiliki modul, akses peserta, atau sertifikat tidak bisa dihapus permanen. Nonaktifkan kelas sebagai gantinya.",
+      }, { status: 409 });
+    }
+
+    await prisma.learningCourse.delete({ where: { id: course.id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "P2003") {
+      return NextResponse.json({ error: "Kelas sedang digunakan dan tidak bisa dihapus permanen. Nonaktifkan kelas sebagai gantinya." }, { status: 409 });
+    }
+    console.error("Delete learning course error:", error);
+    return NextResponse.json({ error: "Gagal menghapus kelas." }, { status: 500 });
   }
 }

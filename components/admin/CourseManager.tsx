@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, Clipboard, KeyRound, PlusCircle, RefreshCw } from "lucide-react";
+import { BookOpen, Clipboard, KeyRound, PlusCircle, Power, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/Toast";
@@ -16,7 +16,7 @@ export interface CourseOption {
   leaderboardReward: boolean;
   rewardDurationDays: number;
   certificateEnabled: boolean;
-  _count?: { modules: number };
+  _count?: { modules: number; accessGrants?: number; certificates?: number };
   redeemCodes?: RedeemCodeOption[];
 }
 
@@ -46,6 +46,7 @@ export function CourseManager({ initialCourses }: { initialCourses: CourseOption
     permanentCode: false,
   });
   const [loading, setLoading] = useState(false);
+  const [processingCourseId, setProcessingCourseId] = useState<string | null>(null);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -69,7 +70,7 @@ export function CourseManager({ initialCourses }: { initialCourses: CourseOption
       if (!response.ok) throw new Error(data.error || "Gagal membuat kelas.");
       setCourses((current) => [...current, {
         ...data.course,
-        _count: { modules: 0 },
+        _count: { modules: 0, accessGrants: 0, certificates: 0 },
         redeemCodes: data.redeemCode ? [data.redeemCode] : [],
       }]);
       setForm((current) => ({ ...current, title: "", description: "" }));
@@ -126,6 +127,47 @@ export function CourseManager({ initialCourses }: { initialCourses: CourseOption
       success(data.code.isActive ? "Kode diaktifkan." : "Kode dinonaktifkan.");
     } catch (err) {
       error(err instanceof Error ? err.message : "Gagal memperbarui kode.");
+    }
+  };
+
+  const toggleCourse = async (course: CourseOption) => {
+    setProcessingCourseId(course.id);
+    try {
+      const response = await fetch("/api/admin/courses", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: course.id, isActive: !course.isActive }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Gagal memperbarui status kelas.");
+      setCourses((current) => current.map((item) => item.id === course.id ? { ...item, ...data.course } : item));
+      router.refresh();
+      success(data.course.isActive ? "Kelas diaktifkan." : "Kelas dinonaktifkan.");
+    } catch (err) {
+      error(err instanceof Error ? err.message : "Gagal memperbarui status kelas.");
+    } finally {
+      setProcessingCourseId(null);
+    }
+  };
+
+  const deleteCourse = async (course: CourseOption) => {
+    if (!window.confirm(`Hapus permanen kelas "${course.title}"? Kelas hanya bisa dihapus jika belum memiliki modul, akses peserta, atau sertifikat.`)) return;
+    setProcessingCourseId(course.id);
+    try {
+      const response = await fetch("/api/admin/courses", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: course.id }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Gagal menghapus kelas.");
+      setCourses((current) => current.filter((item) => item.id !== course.id));
+      router.refresh();
+      success("Kelas berhasil dihapus.");
+    } catch (err) {
+      error(err instanceof Error ? err.message : "Gagal menghapus kelas.");
+    } finally {
+      setProcessingCourseId(null);
     }
   };
 
@@ -189,10 +231,27 @@ export function CourseManager({ initialCourses }: { initialCourses: CourseOption
         {courses.map((course) => (
           <Card key={course.id} className="border-slate-200/80 p-4">
             <div className="flex items-start justify-between gap-3">
-              <div><h3 className="font-extrabold text-slate-900">{course.title}</h3><p className="mt-1 text-xs text-slate-500">{course.description}</p></div>
-              <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">{course.accessMode === "FREE" ? "BASIC" : course.accessMode === "COMMUNITY" ? "KOMUNITAS" : "REDEEM"}</span>
+              <div>
+                <h3 className="font-extrabold text-slate-900">{course.title}</h3>
+                <p className="mt-1 text-xs text-slate-500">{course.description}</p>
+              </div>
+              <div className="flex shrink-0 flex-col items-end gap-1.5">
+                <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">{course.accessMode === "FREE" ? "BASIC" : course.accessMode === "COMMUNITY" ? "KOMUNITAS" : "REDEEM"}</span>
+                <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${course.isActive ? "bg-emerald-50 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>{course.isActive ? "Aktif" : "Nonaktif"}</span>
+              </div>
             </div>
             <p className="mt-3 text-[11px] text-slate-500">{course._count?.modules ?? 0} modul · {course.certificateEnabled ? "Sertifikat kelas aktif" : "Tanpa sertifikat"}{course.leaderboardReward ? ` · Reward top 3 selama ${course.rewardDurationDays} hari` : ""}</p>
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+              <Button type="button" variant="outline" size="sm" isLoading={processingCourseId === course.id} onClick={() => toggleCourse(course)}>
+                <Power className="mr-1.5 h-3.5 w-3.5" />{course.isActive ? "Nonaktifkan" : "Aktifkan"}
+              </Button>
+              <Button type="button" variant="danger" size="sm" disabled={Boolean(course._count?.modules || course._count?.accessGrants || course._count?.certificates)} isLoading={processingCourseId === course.id} onClick={() => deleteCourse(course)} title="Penghapusan permanen hanya tersedia untuk kelas yang belum dipakai.">
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />Hapus permanen
+              </Button>
+            </div>
+            {(course._count?.modules || course._count?.accessGrants || course._count?.certificates) ? (
+              <p className="mt-2 text-[11px] text-slate-500">Kelas sudah digunakan; nonaktifkan agar tidak muncul untuk peserta tanpa menghapus riwayatnya.</p>
+            ) : null}
             {course.accessMode === "REDEEM_CODE" && (
               <div className="mt-4 border-t border-slate-100 pt-3">
                 <div className="mb-2 flex items-center justify-between gap-2">

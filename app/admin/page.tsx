@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, Building2, ShieldCheck, Trophy, Users } from "lucide-react";
+import { ArrowRight, BookOpen, Building2, ShieldCheck, Trophy, Users } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/Card";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -13,12 +13,13 @@ export default async function AdminDashboardPage() {
   if (!user) redirect("/login");
   if (user.role !== "SUPER_ADMIN") redirect("/beranda");
 
-  const [totalUsers, totalCommunities, totalAttempts, totalCertificates, totalModules] = await Promise.all([
+  const [totalUsers, totalCommunities, totalAttempts, totalCertificates, totalModules, totalCourses] = await Promise.all([
     prisma.user.count(),
     prisma.community.count(),
     prisma.speakingAttempt.count({ where: { valid: true } }),
     prisma.certificate.count(),
     prisma.module.count(),
+    prisma.learningCourse.count(),
   ]);
 
   const cards = [
@@ -26,6 +27,7 @@ export default async function AdminDashboardPage() {
     { label: "Total Communities", value: totalCommunities, icon: Building2, href: "/admin/communities", tone: "bg-sky-50 text-sky-700" },
     { label: "Total Speaking Attempts", value: totalAttempts, icon: Trophy, href: "/admin/modules", tone: "bg-amber-50 text-amber-700" },
     { label: "Total Certificates", value: totalCertificates, icon: ShieldCheck, href: "/admin/certificates", tone: "bg-emerald-50 text-emerald-700" },
+    { label: "Total Kelas", value: totalCourses, icon: BookOpen, href: "/admin/courses", tone: "bg-teal-50 text-teal-700" },
   ];
 
   return (
@@ -41,7 +43,7 @@ export default async function AdminDashboardPage() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-5 gap-4">
           {cards.map(({ label, value, icon: Icon, href, tone }) => (
             <Link key={label} href={href} className="block">
               <Card className="h-full p-4 border-slate-200/80 hover:border-purple-200 hover:shadow-md transition-all">
@@ -65,7 +67,8 @@ export default async function AdminDashboardPage() {
             <ul className="mt-4 space-y-2 text-sm text-slate-600">
               <li><Link href="/admin/users" className="text-primary hover:underline">Users</Link></li>
               <li><Link href="/admin/communities" className="text-primary hover:underline">Communities</Link></li>
-              <li><Link href="/admin/modules" className="text-primary hover:underline">Modules</Link></li>
+              <li><Link href="/admin/courses" className="text-primary hover:underline">Kelas & Akses</Link></li>
+              <li><Link href="/admin/modules" className="text-primary hover:underline">Modul & Kuis</Link></li>
               <li><Link href="/admin/questions" className="text-primary hover:underline">Questions</Link></li>
               <li><Link href="/admin/topics" className="text-primary hover:underline">Topics</Link></li>
               <li><Link href="/admin/templates" className="text-primary hover:underline">Templates</Link></li>

@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { ModuleManager } from "@/components/admin/ModuleManager";
-import { CourseManager } from "@/components/admin/CourseManager";
 import { getCurrentUser } from "@/lib/auth/session";
 import prisma from "@/lib/db/prisma";
 
@@ -37,8 +36,6 @@ export default async function AdminModulesPage() {
           </Link>
           <h1 className="text-2xl font-extrabold text-slate-900">Manajemen Modul & Kuis</h1>
         </div>
-
-        <CourseManager initialCourses={courses} />
 
         <ModuleManager courses={courses} initialModules={modules.map((module) => ({
           id: module.id,
