@@ -152,6 +152,15 @@ export function ModuleManager({ initialModules, courses }: ModuleManagerProps) {
     if (currentUrl && currentUrl !== originalUrl) await deleteUploadedPdf(currentUrl);
   };
 
+  const handlePdfUrlChange = (url: string) => {
+    const previousUrl = form.pdfUrl;
+    const originalUrl = modules.find((module) => module.id === editingId)?.pdfUrl;
+    setForm((prev) => ({ ...prev, pdfUrl: url }));
+    if (previousUrl.startsWith("/uploads/modules/") && previousUrl !== originalUrl) {
+      void deleteUploadedPdf(previousUrl);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -343,12 +352,23 @@ export function ModuleManager({ initialModules, courses }: ModuleManagerProps) {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-800">Materi PDF</h3>
-                <p className="text-xs text-slate-500">PDF akan tersedia untuk diunduh di halaman modul peserta. Maksimal 20 MB.</p>
+                <p className="text-xs text-slate-500">Tempel tautan PDF publik atau unggah file maksimal 20 MB.</p>
               </div>
               <label className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 ${uploading ? "pointer-events-none opacity-60" : ""}`}>
                 <Upload className="h-4 w-4" /> {uploading ? "Mengunggah..." : "Pilih file PDF"}
                 <input type="file" accept="application/pdf,.pdf" onChange={handlePdfUpload} disabled={uploading} className="sr-only" />
               </label>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-700">Judul materi PDF</label>
+                <input value={form.pdfTitle} onChange={(e) => handleChange("pdfTitle", e.target.value)} placeholder="Contoh: Buku Panduan Public Speaking" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-700">Tautan PDF</label>
+                <input type="url" value={form.pdfUrl.startsWith("/uploads/modules/") ? "" : form.pdfUrl} onChange={(e) => handlePdfUrlChange(e.target.value)} placeholder="https://..." className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+                <p className="mt-1 text-xs text-slate-500">Pastikan tautan dapat dibuka oleh peserta tanpa login.</p>
+              </div>
             </div>
             {form.pdfUrl && (
               <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2">
