@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { BrandLogo } from "./BrandLogo";
 
-interface NavbarUser {
+export interface NavbarUser {
   id: string;
   name: string;
   email: string;
@@ -25,9 +25,10 @@ interface NavbarUser {
 
 interface NavbarProps {
   user?: NavbarUser | null;
+  authLoading?: boolean;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ user }) => {
+export const Navbar: React.FC<NavbarProps> = ({ user, authLoading = false }) => {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -137,7 +138,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user }) => {
                 <LogOut className="w-4 h-4" />
               </button>
             </div>
-          ) : (
+          ) : !authLoading ? (
             <div className="flex items-center gap-2">
               <Link
                 href="/login"
@@ -152,7 +153,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user }) => {
                 Daftar
               </Link>
             </div>
-          )}
+          ) : null}
 
           {/* Mobile hamburger menu toggle */}
           {user && (
